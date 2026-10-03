@@ -1,0 +1,71 @@
+name: Build Custom Omarchy ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      omarchy_repo:
+        description: 'Omarchy source repository'
+        required: true
+        default: 'woxer77/omarchy'
+      omarchy_ref:
+        description: 'Omarchy branch or commit'
+        required: true
+        default: 'quattro'
+      pkgs_repo:
+        description: 'Omarchy PKGs repository'
+        required: true
+        default: 'omacom/omarchy-pkgs'
+      pkgs_ref:
+        description: 'PKGs branch or commit'
+        required: true
+        default: 'master'
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: true
+
+      - name: Checkout omarchy-iso
+        uses: actions/checkout@v4
+        with:
+          path: omarchy-iso
+          submodules: recursive
+
+      - name: Checkout custom omarchy
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.omarchy_repo || 'woxer77/omarchy' }}
+          ref: ${{ github.event.inputs.omarchy_ref || 'quattro' }}
+          path: omarchy
+
+      - name: Checkout omarchy-pkgs
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.pkgs_repo || 'omacom/omarchy-pkgs' }}
+          ref: ${{ github.event.inputs.pkgs_ref || 'master' }}
+          path: omarchy-pkgs
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Custom ISO
+        run: |
+          cd omarchy-iso
+          NO_BOOT_OFFER=1 ./bin/omarchy-iso-make --keep-pkg-cache --local-source ../omarchy ../omarchy-pkgs
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omarchy-custom-iso
+          path: omarchy-iso/release/*.iso
+          retention-days: 7
